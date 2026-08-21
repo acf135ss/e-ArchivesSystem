@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# 附件存储
+backend/storage/
+
+# Node
+node_modules/
+dist/
