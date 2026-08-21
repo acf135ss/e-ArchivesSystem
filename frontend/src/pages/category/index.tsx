@@ -4,7 +4,6 @@ import {
   Card,
   Form,
   Input,
-  InputNumber,
   Modal,
   Popconfirm,
   Space,
@@ -49,7 +48,6 @@ export default function CategoryPage() {
       form.setFieldsValue({
         name: record.name,
         description: record.description,
-        sort: record.sort,
         is_active: record.is_active === 1,
       });
     } else {
@@ -63,7 +61,6 @@ export default function CategoryPage() {
     const payload = {
       name: values.name,
       description: values.description || null,
-      sort: values.sort ?? 0,
       is_active: values.is_active ? 1 : 0,
     };
     try {
@@ -95,7 +92,6 @@ export default function CategoryPage() {
     { title: 'ID', dataIndex: 'id', width: 80 },
     { title: '分类名称', dataIndex: 'name', width: 160 },
     { title: '说明', dataIndex: 'description', render: (v) => v || '-' },
-    { title: '排序', dataIndex: 'sort', width: 100 },
     {
       title: '状态',
       dataIndex: 'is_active',
@@ -150,9 +146,6 @@ export default function CategoryPage() {
           </Form.Item>
           <Form.Item name="description" label="说明">
             <Input.TextArea rows={2} />
-          </Form.Item>
-          <Form.Item name="sort" label="排序" initialValue={0}>
-            <InputNumber style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="is_active" label="是否启用" valuePropName="checked" initialValue={true}>
             <Switch />

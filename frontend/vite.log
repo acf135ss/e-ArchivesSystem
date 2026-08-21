@@ -1,0 +1,26 @@
+
+> e-archivessystem-frontend@0.1.0 dev
+> vite
+
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m613[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+[2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[2m17:37:08[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/auth/login[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m17:43:55[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/login/index.tsx[22m
+[2m19:31:04[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/login/index.tsx[22m
+[2m19:31:05[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/user/index.tsx[22m
+[2m19:31:05[22m [31m[1m[vite][22m[39m Pre-transform error: Failed to load url /src/api/user.ts (resolved id: D:/Project/e-ArchivesSystem/frontend/src/api/user.ts) in D:/Project/e-ArchivesSystem/frontend/src/pages/user/index.tsx. Does the file exist?
+[2m19:31:05[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/log/index.tsx[22m
+[2m19:31:05[22m [31m[1m[vite][22m[39m Pre-transform error: Failed to load url /src/api/log.ts (resolved id: D:/Project/e-ArchivesSystem/frontend/src/api/log.ts) in D:/Project/e-ArchivesSystem/frontend/src/pages/log/index.tsx. Does the file exist?
+[2m19:31:16[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/dashboard/index.tsx, /src/pages/archive/index.tsx, /src/pages/archive/ArchiveDetailDrawer.tsx, /src/pages/archive/ArchiveFormModal.tsx[22m
+[2m19:31:17[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/dashboard/index.tsx, /src/pages/archive/index.tsx, /src/pages/archive/ArchiveDetailDrawer.tsx, /src/pages/archive/ArchiveFormModal.tsx[22m
+[2m19:31:21[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/user/index.tsx[22m
+[2m19:31:21[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/log/index.tsx[22m
+[2m19:31:28[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/AppLayout.tsx[22m
+[2m19:31:33[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m19:31:44[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/login/index.tsx[22m

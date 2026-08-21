@@ -1,13 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Button, Layout, Menu, Space, Typography } from 'antd';
 import {
   DashboardOutlined,
   FileTextOutlined,
   AppstoreOutlined,
+  KeyOutlined,
   LogoutOutlined,
 } from '@ant-design/icons';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
+import ChangePasswordModal from './ChangePasswordModal';
 
 const { Header, Sider, Content } = Layout;
 
@@ -16,6 +18,7 @@ export default function AppLayout() {
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const [pwdOpen, setPwdOpen] = useState(false);
 
   const menuItems = useMemo(
     () => [
@@ -73,6 +76,9 @@ export default function AppLayout() {
             {user?.real_name || user?.username}
           </Typography.Title>
           <Space>
+            <Button icon={<KeyOutlined />} onClick={() => setPwdOpen(true)}>
+              修改密码
+            </Button>
             <Button icon={<LogoutOutlined />} onClick={onLogout}>
               退出登录
             </Button>
@@ -82,6 +88,7 @@ export default function AppLayout() {
           <Outlet />
         </Content>
       </Layout>
+      <ChangePasswordModal open={pwdOpen} onClose={() => setPwdOpen(false)} />
     </Layout>
   );
 }

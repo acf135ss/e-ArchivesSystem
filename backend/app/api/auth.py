@@ -7,7 +7,13 @@ from app.core.security import create_access_token, hash_password, verify_passwor
 from app.db.session import get_db
 from app.models.category import Category
 from app.models.user import User
-from app.schemas.user import LoginRequest, RegisterRequest, TokenResponse, UserOut
+from app.schemas.user import (
+    ChangePasswordRequest,
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserOut,
+)
 
 router = APIRouter(prefix="/auth", tags=["认证"])
 
@@ -61,3 +67,18 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 def me(current_user: User = Depends(get_current_user)):
     return UserOut.model_validate(current_user)
+
+
+@router.post("/change-password")
+def change_password(
+    body: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not verify_password(body.old_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="原密码错误"
+        )
+    current_user.password_hash = hash_password(body.new_password)
+    db.commit()
+    return {"message": "密码修改成功"}

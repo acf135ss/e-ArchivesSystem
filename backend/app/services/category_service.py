@@ -33,7 +33,14 @@ def _ensure_unique_name(db: Session, user: User, name: str, exclude_id: int | No
 
 def create_category(db: Session, user: User, data: CategoryCreate) -> Category:
     _ensure_unique_name(db, user, data.name)
-    category = Category(user_id=user.id, **data.model_dump())
+    # 自动排序：新分类排在当前用户已有分类之后
+    max_sort = db.scalar(
+        select(func.max(Category.sort)).where(Category.user_id == user.id)
+    )
+    auto_sort = (max_sort or 0) + 1
+    payload = data.model_dump()
+    payload.pop("sort", None)  # 忽略前端传入的排序，始终自动递增
+    category = Category(user_id=user.id, sort=auto_sort, **payload)
     db.add(category)
     db.commit()
     db.refresh(category)

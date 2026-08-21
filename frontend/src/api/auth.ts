@@ -26,3 +26,11 @@ export async function getMe(): Promise<UserInfo> {
   const { data } = await request.get('/auth/me');
   return data;
 }
+
+export async function changePassword(oldPassword: string, newPassword: string) {
+  const { data } = await request.post('/auth/change-password', {
+    old_password: oldPassword,
+    new_password: newPassword,
+  });
+  return data;
+}
