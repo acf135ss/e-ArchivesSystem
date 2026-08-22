@@ -17,3 +17,8 @@ class Category(Base, TimestampMixin):
     description: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sort: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_active: Mapped[int] = mapped_column(SmallInteger, default=1, nullable=False)  # 1 启用 / 0 停用
+    protect_password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    @property
+    def is_protected(self) -> bool:
+        return bool(self.protect_password_hash)

@@ -5,6 +5,7 @@ import {
   Drawer,
   Empty,
   List,
+  Modal,
   Popconfirm,
   Tag,
   Upload,
@@ -34,6 +35,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onChanged: () => void;
+  unlockToken?: string;
 }
 
 function formatSize(bytes: number): string {
@@ -42,17 +44,24 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export default function ArchiveDetailDrawer({ archiveId, open, onClose, onChanged }: Props) {
+export default function ArchiveDetailDrawer({
+  archiveId,
+  open,
+  onClose,
+  onChanged,
+  unlockToken,
+}: Props) {
   const [archive, setArchive] = useState<ArchiveOut | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const [preview, setPreview] = useState<{ url: string; filename: string } | null>(null);
 
   const load = async () => {
     if (archiveId == null) return;
     setLoading(true);
     try {
-      const data = await getArchive(archiveId);
+      const data = await getArchive(archiveId, unlockToken);
       setArchive(data);
     } catch (err: any) {
       message.error(err.response?.data?.detail || '加载失败');
@@ -70,13 +79,17 @@ export default function ArchiveDetailDrawer({ archiveId, open, onClose, onChange
     setFileList([]);
   }, [open, archiveId]);
 
-  const onPreview = async (id: number) => {
-    const url = await getAttachmentBlobUrl(id);
-    window.open(url, '_blank');
+  const onPreview = async (id: number, contentType: string | null, filename: string) => {
+    const url = await getAttachmentBlobUrl(id, unlockToken);
+    if (contentType?.startsWith('image/')) {
+      setPreview({ url, filename });
+    } else {
+      window.open(url, '_blank');
+    }
   };
 
   const onDownload = async (id: number, filename: string) => {
-    await downloadAttachment(id, filename);
+    await downloadAttachment(id, filename, unlockToken);
   };
 
   const onDelete = async (id: number) => {
@@ -119,7 +132,7 @@ export default function ArchiveDetailDrawer({ archiveId, open, onClose, onChange
       {archive && (
         <>
           <Descriptions column={1} bordered size="small">
-            <Descriptions.Item label="档案名称">{archive.name}</Descriptions.Item>
+            <Descriptions.Item label="名称">{archive.name}</Descriptions.Item>
             <Descriptions.Item label="分类">
               {archive.category?.name || '-'}
             </Descriptions.Item>
@@ -144,29 +157,46 @@ export default function ArchiveDetailDrawer({ archiveId, open, onClose, onChange
             <Descriptions.Item label="备注">{archive.remark || '-'}</Descriptions.Item>
           </Descriptions>
 
-          <div style={{ marginTop: 16, marginBottom: 8, fontWeight: 600 }}>附件</div>
-          <Upload
-            multiple
-            fileList={fileList}
-            beforeUpload={() => false}
-            onChange={({ fileList: fl }) => setFileList(fl)}
-            accept=".jpg,.jpeg,.png,.pdf"
+          <div
+            style={{
+              marginTop: 16,
+              marginBottom: 12,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
           >
-            <Button icon={<UploadOutlined />}>选择附件</Button>
-          </Upload>
-          <Button
-            type="primary"
-            size="small"
-            onClick={onUpload}
-            loading={uploading}
-            disabled={!fileList.length}
-            style={{ marginLeft: 8 }}
-          >
-            上传
-          </Button>
+            <span style={{ fontWeight: 600 }}>附件</span>
+            <Upload
+              multiple
+              fileList={fileList}
+              beforeUpload={() => false}
+              onChange={({ fileList: fl }) => setFileList(fl)}
+              accept=".jpg,.jpeg,.png,.pdf"
+            >
+              <Button size="small" icon={<UploadOutlined />}>
+                选择附件
+              </Button>
+            </Upload>
+          </div>
+          {fileList.length > 0 && (
+            <div style={{ marginBottom: 8, color: '#666', fontSize: 13 }}>
+              已选择 {fileList.length} 个文件：
+              {fileList.map((f) => f.name).join('、')}
+              <Button
+                type="primary"
+                size="small"
+                onClick={onUpload}
+                loading={uploading}
+                style={{ marginLeft: 12 }}
+              >
+                上传
+              </Button>
+            </div>
+          )}
 
           <List
-            style={{ marginTop: 16 }}
+            style={{ marginTop: 8 }}
             dataSource={archive.attachments}
             locale={{ emptyText: <Empty description="暂无附件" /> }}
             renderItem={(att) => (
@@ -177,7 +207,7 @@ export default function ArchiveDetailDrawer({ archiveId, open, onClose, onChange
                     type="link"
                     size="small"
                     icon={<EyeOutlined />}
-                    onClick={() => onPreview(att.id)}
+                    onClick={() => onPreview(att.id, att.content_type, att.filename)}
                   >
                     预览
                   </Button>,
@@ -219,6 +249,22 @@ export default function ArchiveDetailDrawer({ archiveId, open, onClose, onChange
           />
         </>
       )}
+
+      <Modal
+        open={!!preview}
+        title={preview?.filename || '图片预览'}
+        footer={null}
+        onCancel={() => setPreview(null)}
+        width={800}
+      >
+        {preview && (
+          <img
+            src={preview.url}
+            alt={preview.filename}
+            style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain' }}
+          />
+        )}
+      </Modal>
     </Drawer>
   );
 }

@@ -106,7 +106,7 @@ export default function ArchiveFormModal({
 
   return (
     <Modal
-      title={isEdit ? '编辑档案' : '新增档案'}
+      title={isEdit ? '编辑档案' : '新增'}
       open={open}
       onOk={handleOk}
       onCancel={onClose}
@@ -116,15 +116,15 @@ export default function ArchiveFormModal({
       <Form form={form} layout="vertical">
         <Form.Item
           name="name"
-          label="档案名称"
-          rules={[{ required: true, message: '请输入档案名称' }]}
+          label="名称"
+          rules={[{ required: true, message: '请输入名称' }]}
         >
           <Input placeholder="如：大学英语六级证书" />
         </Form.Item>
         <Form.Item
           name="category_id"
-          label="档案分类"
-          rules={[{ required: true, message: '请选择档案分类' }]}
+          label="分类"
+          rules={[{ required: true, message: '请选择分类' }]}
         >
           <Select
             placeholder="请选择分类"

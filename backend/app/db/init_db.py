@@ -64,14 +64,39 @@ def ensure_database(host: str, port: int, user: str, password: str, dbname: str)
         engine.dispose()
 
 
+def _migrate_missing_columns(engine) -> None:
+    """轻量迁移：补齐已存在表中缺失的列（避免 create_all 无法迁移的坑）。"""
+    # 表 -> (列名, 列定义)
+    columns_to_add: dict[str, list[tuple[str, str]]] = {
+        "categories": [
+            ("protect_password_hash", "VARCHAR(255) NULL"),
+        ],
+    }
+    with engine.connect() as conn:
+        for table, columns in columns_to_add.items():
+            existing = {
+                row[0]
+                for row in conn.execute(text(f"SHOW COLUMNS FROM `{table}`"))
+            }
+            for col_name, col_def in columns:
+                if col_name not in existing:
+                    conn.execute(
+                        text(f"ALTER TABLE `{table}` ADD COLUMN `{col_name}` {col_def}")
+                    )
+                    print(f"      已补充缺失列：{table}.{col_name}")
+        conn.commit()
+
+
 def init_db(host: str, port: int, user: str, password: str, dbname: str) -> str:
-    print(f"[1/2] 正在创建数据库 `{dbname}` ...")
+    print(f"[1/3] 正在创建数据库 `{dbname}` ...")
     ensure_database(host, port, user, password, dbname)
 
     engine = create_engine(_db_url(host, port, user, password, dbname), pool_pre_ping=True)
     try:
-        print("[2/2] 正在创建数据表 ...")
+        print("[2/3] 正在创建数据表 ...")
         Base.metadata.create_all(bind=engine)
+        print("[3/3] 正在检查并补齐缺失列 ...")
+        _migrate_missing_columns(engine)
     finally:
         engine.dispose()
 

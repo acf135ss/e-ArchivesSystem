@@ -5,6 +5,7 @@ import {
   Col,
   DatePicker,
   Input,
+  Modal,
   Popconfirm,
   Row,
   Select,
@@ -16,6 +17,7 @@ import {
 } from 'antd';
 import {
   DownloadOutlined,
+  LockOutlined,
   PlusOutlined,
   ReloadOutlined,
   SearchOutlined,
@@ -33,7 +35,7 @@ import {
   importArchives,
   listArchives,
 } from '../../api/archive';
-import { listCategories } from '../../api/category';
+import { listCategories, verifyCategoryPassword } from '../../api/category';
 import ArchiveFormModal from './ArchiveFormModal';
 import ArchiveDetailDrawer from './ArchiveDetailDrawer';
 
@@ -57,6 +59,18 @@ export default function ArchiveList() {
   const [editingRecord, setEditingRecord] = useState<ArchiveOut | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [detailId, setDetailId] = useState<number | null>(null);
+  const [detailCategoryId, setDetailCategoryId] = useState<number | null>(null);
+
+  // 二次密码：已解锁分类的解锁 token（categoryId -> unlockToken，会话内记住）
+  const [unlockTokens, setUnlockTokens] = useState<Map<number, string>>(new Map());
+  const [pwdTarget, setPwdTarget] = useState<CategoryOut | null>(null);
+  const [pwdInput, setPwdInput] = useState('');
+  const [pwdVerifying, setPwdVerifying] = useState(false);
+  // 密码验证通过后待执行的动作
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  // 待验证的分类队列（用于导出时逐个解锁）
+  const [pendingCats, setPendingCats] = useState<CategoryOut[]>([]);
+  const [currentPendingCat, setCurrentPendingCat] = useState<CategoryOut | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -106,6 +120,84 @@ export default function ArchiveList() {
     setPage(1);
   };
 
+  const onCategoryChange = (value: number | undefined) => {
+    if (value == null) {
+      setCategoryId(undefined);
+      return;
+    }
+    setCategoryId(value);
+  };
+
+  // 若分类受保护且未解锁，则弹出密码框；验证通过后执行 action
+  const ensureUnlocked = (categoryId: number, action: () => void) => {
+    const cat = categories.find((c) => c.id === categoryId);
+    if (cat?.is_protected && !unlockTokens.has(categoryId)) {
+      setPwdTarget(cat);
+      setPwdInput('');
+      setPendingAction(() => action);
+      return;
+    }
+    action();
+  };
+
+  const onVerifyPassword = async () => {
+    if (!pwdTarget) return;
+    setPwdVerifying(true);
+    try {
+      const res = await verifyCategoryPassword(pwdTarget.id, pwdInput);
+      setUnlockTokens((prev) => new Map(prev).set(pwdTarget.id, res.unlock_token));
+
+      // 导出队列场景：推进到下一个待验证分类
+      if (currentPendingCat) {
+        const rest = pendingCats.filter((c) => c.id !== pwdTarget.id);
+        setPendingCats(rest);
+        if (rest.length) {
+          setCurrentPendingCat(rest[0]);
+          setPwdTarget(rest[0]);
+          setPwdInput('');
+          setPwdVerifying(false);
+          return;
+        }
+        // 全部解锁完成，执行导出
+        setCurrentPendingCat(null);
+        setPwdTarget(null);
+        setPwdInput('');
+        setPwdVerifying(false);
+        doExport();
+        return;
+      }
+
+      // 详情/编辑场景：执行待执行动作
+      const action = pendingAction;
+      setPwdTarget(null);
+      setPwdInput('');
+      setPendingAction(null);
+      message.success('验证通过');
+      action?.();
+    } catch (err: any) {
+      message.error(err.response?.data?.detail || '密码错误');
+    } finally {
+      setPwdVerifying(false);
+    }
+  };
+
+  // 打开详情：受保护分类需先解锁
+  const openDetail = (record: ArchiveOut) => {
+    ensureUnlocked(record.category_id, () => {
+      setDetailId(record.id);
+      setDetailCategoryId(record.category_id);
+      setDrawerOpen(true);
+    });
+  };
+
+  // 打开编辑：受保护分类需先解锁
+  const openEdit = (record: ArchiveOut) => {
+    ensureUnlocked(record.category_id, () => {
+      setEditingRecord(record);
+      setModalOpen(true);
+    });
+  };
+
   const onDelete = async (id: number) => {
     await deleteArchive(id);
     message.success('删除成功');
@@ -113,12 +205,52 @@ export default function ArchiveList() {
   };
 
   const onExport = async () => {
-    await exportArchives({
-      keyword: keyword || undefined,
-      category_id: categoryId,
-      tag: tag || undefined,
-    });
-    message.success('导出成功');
+    // 先查询导出结果集，找出其中受保护且未解锁的分类
+    let protectedCats: CategoryOut[] = [];
+    try {
+      const res = await listArchives({
+        keyword: keyword || undefined,
+        category_id: categoryId,
+        tag: tag || undefined,
+        page: 1,
+        page_size: 100000,
+      });
+      const ids = new Set(res.items.map((a) => a.category_id));
+      protectedCats = categories.filter(
+        (c) => ids.has(c.id) && c.is_protected && !unlockTokens.has(c.id),
+      );
+    } catch (err: any) {
+      message.error(err.response?.data?.detail || '导出失败');
+      return;
+    }
+
+    // 若存在未解锁的受保护分类，逐个验证密码
+    if (protectedCats.length) {
+      setPendingCats(protectedCats);
+      setCurrentPendingCat(protectedCats[0]);
+      setPwdTarget(protectedCats[0]);
+      setPwdInput('');
+      return;
+    }
+    doExport();
+  };
+
+  const doExport = async () => {
+    try {
+      // 收集所有已解锁分类的 token（逗号分隔）
+      const tokens = Array.from(unlockTokens.values()).join(',');
+      await exportArchives(
+        {
+          keyword: keyword || undefined,
+          category_id: categoryId,
+          tag: tag || undefined,
+        },
+        tokens || undefined,
+      );
+      message.success('导出成功');
+    } catch (err: any) {
+      message.error(err.response?.data?.detail || '导出失败');
+    }
   };
 
   const onImport = async (file: File) => {
@@ -183,20 +315,14 @@ export default function ArchiveList() {
           <Button
             type="link"
             size="small"
-            onClick={() => {
-              setDetailId(record.id);
-              setDrawerOpen(true);
-            }}
+            onClick={() => openDetail(record)}
           >
             详情
           </Button>
           <Button
             type="link"
             size="small"
-            onClick={() => {
-              setEditingRecord(record);
-              setModalOpen(true);
-            }}
+            onClick={() => openEdit(record)}
           >
             编辑
           </Button>
@@ -229,9 +355,12 @@ export default function ArchiveList() {
             placeholder="分类"
             allowClear
             value={categoryId}
-            onChange={setCategoryId}
-            options={categories.map((c) => ({ value: c.id, label: c.name }))}
-            style={{ width: 140 }}
+            onChange={onCategoryChange}
+            options={categories.map((c) => ({
+              value: c.id,
+              label: c.is_protected ? `${c.name} 🔒` : c.name,
+            }))}
+            style={{ width: 160 }}
           />
         </Col>
         <Col>
@@ -283,7 +412,7 @@ export default function ArchiveList() {
             setModalOpen(true);
           }}
         >
-          新增档案
+          新增
         </Button>
         <Button icon={<DownloadOutlined />} onClick={onExport}>
           导出
@@ -334,7 +463,42 @@ export default function ArchiveList() {
         archiveId={detailId}
         onClose={() => setDrawerOpen(false)}
         onChanged={load}
+        unlockToken={
+          detailCategoryId != null ? unlockTokens.get(detailCategoryId) : undefined
+        }
       />
+
+      <Modal
+        title={
+          <span>
+            <LockOutlined style={{ marginRight: 8 }} />
+            验证二次密码
+          </span>
+        }
+        open={!!pwdTarget}
+        onOk={onVerifyPassword}
+        onCancel={() => {
+          setPwdTarget(null);
+          setPendingAction(null);
+          setPendingCats([]);
+          setCurrentPendingCat(null);
+        }}
+        confirmLoading={pwdVerifying}
+        okText="验证"
+        cancelText="取消"
+        width={400}
+      >
+        <p style={{ color: '#666' }}>
+          分类「{pwdTarget?.name}」已设置二次密码，请输入密码解锁后
+          {currentPendingCat ? '导出' : '查看'}。
+        </p>
+        <Input.Password
+          placeholder="请输入该分类的二次密码"
+          value={pwdInput}
+          onChange={(e) => setPwdInput(e.target.value)}
+          onPressEnter={onVerifyPassword}
+        />
+      </Modal>
     </Card>
   );
 }

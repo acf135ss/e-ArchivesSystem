@@ -1,11 +1,11 @@
 """附件管理接口。"""
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import check_category_unlocked, get_current_user
 from app.core.config import settings
 from app.core.storage import build_stored_path
 from app.db.session import get_db
@@ -71,11 +71,15 @@ def download_attachment(
     attachment_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    x_category_unlock: str | None = Header(default=None),
 ):
     attachment = db.get(Attachment, attachment_id)
     if attachment is None:
         raise HTTPException(status_code=404, detail="附件不存在")
     _check_attachment_access(db, current_user, attachment)
+    check_category_unlocked(
+        attachment.archive.category_id, current_user, db, x_category_unlock
+    )
 
     path = Path(attachment.stored_path)
     if not path.exists():

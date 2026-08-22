@@ -4,6 +4,7 @@ import {
   DashboardOutlined,
   FileTextOutlined,
   AppstoreOutlined,
+  SafetyOutlined,
   KeyOutlined,
   LogoutOutlined,
 } from '@ant-design/icons';
@@ -25,6 +26,7 @@ export default function AppLayout() {
       { key: '/', icon: <DashboardOutlined />, label: '首页概览' },
       { key: '/archives', icon: <FileTextOutlined />, label: '档案管理' },
       { key: '/categories', icon: <AppstoreOutlined />, label: '分类管理' },
+      { key: '/protection', icon: <SafetyOutlined />, label: '隐私防护' },
     ],
     [],
   );

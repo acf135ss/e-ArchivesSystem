@@ -89,13 +89,13 @@ export default function CategoryPage() {
   };
 
   const columns: ColumnsType<CategoryOut> = [
-    { title: 'ID', dataIndex: 'id', width: 80 },
+    { title: 'ID', dataIndex: 'id', width: 70 },
     { title: '分类名称', dataIndex: 'name', width: 160 },
     { title: '说明', dataIndex: 'description', render: (v) => v || '-' },
     {
       title: '状态',
       dataIndex: 'is_active',
-      width: 100,
+      width: 90,
       render: (v) =>
         v === 1 ? <Tag color="green">启用</Tag> : <Tag color="default">停用</Tag>,
     },

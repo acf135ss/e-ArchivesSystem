@@ -6,6 +6,7 @@ export interface CategoryPayload {
   description?: string | null;
   sort?: number;
   is_active?: number;
+  protect_password?: string | null;
 }
 
 export async function listCategories(activeOnly = false): Promise<CategoryOut[]> {
@@ -30,4 +31,12 @@ export async function updateCategory(
 
 export async function deleteCategory(id: number): Promise<void> {
   await request.delete(`/categories/${id}`);
+}
+
+export async function verifyCategoryPassword(
+  id: number,
+  password: string,
+): Promise<{ message: string; unlock_token: string }> {
+  const { data } = await request.post(`/categories/${id}/verify-password`, { password });
+  return data;
 }

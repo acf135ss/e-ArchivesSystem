@@ -7,6 +7,7 @@ export interface CategoryOut {
   description: string | null;
   sort: number;
   is_active: number;
+  is_protected: boolean;
   created_at: string;
 }
 
@@ -81,8 +82,10 @@ export async function listArchives(params: ArchiveQuery): Promise<Page<ArchiveOu
   return data;
 }
 
-export async function getArchive(id: number): Promise<ArchiveOut> {
-  const { data } = await request.get(`/archives/${id}`);
+export async function getArchive(id: number, unlockToken?: string): Promise<ArchiveOut> {
+  const { data } = await request.get(`/archives/${id}`, {
+    headers: unlockToken ? { 'X-Category-Unlock': unlockToken } : undefined,
+  });
   return data;
 }
 
@@ -121,13 +124,23 @@ export async function deleteAttachment(id: number): Promise<void> {
   await request.delete(`/attachments/${id}`);
 }
 
-export async function getAttachmentBlobUrl(id: number): Promise<string> {
-  const res = await request.get(`/attachments/${id}/download`, { responseType: 'blob' });
+export async function getAttachmentBlobUrl(id: number, unlockToken?: string): Promise<string> {
+  const res = await request.get(`/attachments/${id}/download`, {
+    responseType: 'blob',
+    headers: unlockToken ? { 'X-Category-Unlock': unlockToken } : undefined,
+  });
   return URL.createObjectURL(res.data);
 }
 
-export async function downloadAttachment(id: number, filename: string): Promise<void> {
-  const res = await request.get(`/attachments/${id}/download`, { responseType: 'blob' });
+export async function downloadAttachment(
+  id: number,
+  filename: string,
+  unlockToken?: string,
+): Promise<void> {
+  const res = await request.get(`/attachments/${id}/download`, {
+    responseType: 'blob',
+    headers: unlockToken ? { 'X-Category-Unlock': unlockToken } : undefined,
+  });
   const url = URL.createObjectURL(res.data);
   const a = document.createElement('a');
   a.href = url;
@@ -136,8 +149,15 @@ export async function downloadAttachment(id: number, filename: string): Promise<
   URL.revokeObjectURL(url);
 }
 
-export async function exportArchives(params: ArchiveQuery): Promise<void> {
-  const res = await request.get('/archives/export', { params, responseType: 'blob' });
+export async function exportArchives(
+  params: ArchiveQuery,
+  unlockToken?: string,
+): Promise<void> {
+  const res = await request.get('/archives/export', {
+    params,
+    responseType: 'blob',
+    headers: unlockToken ? { 'X-Category-Unlock': unlockToken } : undefined,
+  });
   const url = URL.createObjectURL(res.data);
   const a = document.createElement('a');
   a.href = url;

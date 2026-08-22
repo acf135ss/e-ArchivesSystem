@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     # 到期提醒
     EXPIRE_REMIND_DAYS: int = 30
 
+    # 分类二次密码解锁 token 有效期（分钟）
+    CATEGORY_UNLOCK_EXPIRE_MINUTES: int = 30
+
     @property
     def allowed_extensions(self) -> list[str]:
         return [ext.strip().lower() for ext in self.ALLOWED_EXTENSIONS.split(",") if ext.strip()]

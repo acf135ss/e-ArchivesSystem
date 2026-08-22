@@ -91,7 +91,37 @@ def get_archive(db: Session, current_user: User, archive_id: int) -> Archive:
     return archive
 
 
+def _check_name_unique(db: Session, user: User, name: str, exclude_id: int | None = None) -> None:
+    stmt = select(Archive).where(
+        Archive.user_id == user.id,
+        Archive.name == name,
+        Archive.deleted_at.is_(None),
+    )
+    if exclude_id is not None:
+        stmt = stmt.where(Archive.id != exclude_id)
+    if db.scalar(stmt) is not None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="档案名称已存在")
+
+
+def _check_cert_no_unique(
+    db: Session, user: User, cert_no: str, exclude_id: int | None = None
+) -> None:
+    if not cert_no:
+        return
+    stmt = select(Archive).where(
+        Archive.user_id == user.id,
+        Archive.cert_no == cert_no,
+        Archive.deleted_at.is_(None),
+    )
+    if exclude_id is not None:
+        stmt = stmt.where(Archive.id != exclude_id)
+    if db.scalar(stmt) is not None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="证书编号已存在")
+
+
 def create_archive(db: Session, current_user: User, data: ArchiveCreate) -> Archive:
+    _check_name_unique(db, current_user, data.name)
+    _check_cert_no_unique(db, current_user, data.cert_no)
     archive = Archive(
         user_id=current_user.id,
         category_id=data.category_id,
@@ -118,6 +148,15 @@ def update_archive(
     archive = get_archive(db, current_user, archive_id)
     payload = data.model_dump(exclude_unset=True)
     tags = payload.pop("tags", None)
+
+    new_name = payload.get("name")
+    if new_name is not None and new_name != archive.name:
+        _check_name_unique(db, current_user, new_name, exclude_id=archive.id)
+
+    new_cert_no = payload.get("cert_no", archive.cert_no)
+    if new_cert_no and new_cert_no != archive.cert_no:
+        _check_cert_no_unique(db, current_user, new_cert_no, exclude_id=archive.id)
+
     for field, value in payload.items():
         setattr(archive, field, value)
     if tags is not None:

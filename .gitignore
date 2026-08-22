@@ -11,3 +11,9 @@ backend/storage/
 # Node
 node_modules/
 dist/
+
+# 日志
+*.log
+
+# 工作记忆（本地辅助文件，不提交）
+.codebuddy/

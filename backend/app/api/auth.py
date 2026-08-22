@@ -30,6 +30,16 @@ def _init_user_categories(db: Session, user_id: int) -> None:
         db.add(Category(user_id=user_id, **c))
 
 
+def ensure_default_categories(db: Session, user: User) -> None:
+    """兜底：若用户没有任何分类，自动补齐默认三大分类（覆盖历史账号）。"""
+    has_any = db.scalar(
+        select(Category.id).where(Category.user_id == user.id).limit(1)
+    )
+    if has_any is None:
+        _init_user_categories(db, user.id)
+        db.commit()
+
+
 @router.post("/register", response_model=TokenResponse)
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
     if db.scalar(select(User).where(User.username == body.username)) is not None:
@@ -60,12 +70,14 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="账号已停用"
         )
+    ensure_default_categories(db, user)
     token = create_access_token(user.id)
     return TokenResponse(access_token=token, user=UserOut.model_validate(user))
 
 
 @router.get("/me", response_model=UserOut)
-def me(current_user: User = Depends(get_current_user)):
+def me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    ensure_default_categories(db, current_user)
     return UserOut.model_validate(current_user)
 
 

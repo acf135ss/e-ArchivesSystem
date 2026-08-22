@@ -11,7 +11,7 @@ class CategoryBase(BaseModel):
 
 
 class CategoryCreate(CategoryBase):
-    pass
+    protect_password: str | None = None
 
 
 class CategoryUpdate(BaseModel):
@@ -19,6 +19,8 @@ class CategoryUpdate(BaseModel):
     description: str | None = None
     sort: int | None = None
     is_active: int | None = None
+    protect_password: str | None = None
+    old_password: str | None = None  # 修改/清除密码时需校验旧密码
 
 
 class CategoryOut(CategoryBase):
@@ -26,4 +28,9 @@ class CategoryOut(CategoryBase):
 
     id: int
     user_id: int
+    is_protected: bool = False
     created_at: datetime
+
+
+class CategoryVerifyRequest(BaseModel):
+    password: str

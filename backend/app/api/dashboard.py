@@ -49,9 +49,12 @@ def get_stats(
 
     rows = db.execute(
         select(Category.id, Category.name, func.count(Archive.id))
-        .join(Archive, Archive.category_id == Category.id)
-        .where(*conditions)
-        .group_by(Category.id, Category.name)
+        .outerjoin(
+            Archive,
+            (Archive.category_id == Category.id) & (Archive.deleted_at.is_(None)),
+        )
+        .where(Category.user_id == current_user.id)
+        .group_by(Category.id, Category.name, Category.sort)
         .order_by(Category.sort, Category.id)
     ).all()
     distribution = [

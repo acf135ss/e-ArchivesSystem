@@ -1,20 +1,36 @@
-import { useEffect, useState } from 'react';
-import { Card, Col, Empty, Progress, Row, Statistic, Table, Tabs, message } from 'antd';
+import { useEffect, useRef, useState } from 'react';
+import { Card, Col, Empty, Row, Statistic, Table, Tabs, message } from 'antd';
 import {
   FileTextOutlined,
   WarningOutlined,
   StopOutlined,
   PaperClipOutlined,
 } from '@ant-design/icons';
+import * as echarts from 'echarts';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { ArchiveOut, listExpired, listExpiring } from '../../api/archive';
 import { DashboardStats, getStats } from '../../api/dashboard';
 
+const CHART_COLORS = [
+  '#5470c6',
+  '#91cc75',
+  '#fac858',
+  '#ee6666',
+  '#73c0de',
+  '#3ba272',
+  '#fc8452',
+  '#9a60b4',
+  '#ea7ccc',
+  '#546570',
+];
+
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [expiring, setExpiring] = useState<ArchiveOut[]>([]);
   const [expired, setExpired] = useState<ArchiveOut[]>([]);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartInstance = useRef<echarts.ECharts | null>(null);
 
   useEffect(() => {
     getStats()
@@ -22,6 +38,76 @@ export default function Dashboard() {
       .catch((err) => message.error(err.response?.data?.detail || '加载统计失败'));
     listExpiring().then(setExpiring).catch(() => {});
     listExpired().then(setExpired).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!chartRef.current || !stats?.category_distribution.length) return;
+    if (!chartInstance.current) {
+      chartInstance.current = echarts.init(chartRef.current);
+    }
+    const option: echarts.EChartsOption = {
+      color: CHART_COLORS,
+      tooltip: {
+        trigger: 'item',
+        formatter: '{b}<br/>{c} 条（{d}%）',
+      },
+      legend: {
+        orient: 'horizontal',
+        bottom: 0,
+        left: 'center',
+        textStyle: { fontSize: 12 },
+        itemWidth: 14,
+        itemHeight: 14,
+      },
+      series: [
+        {
+          name: '分类分布',
+          type: 'pie',
+          radius: ['42%', '66%'],
+          center: ['50%', '46%'],
+          avoidLabelOverlap: true,
+          itemStyle: {
+            borderColor: '#fff',
+            borderWidth: 2,
+          },
+          emphasis: {
+            scale: true,
+            scaleSize: 6,
+            label: {
+              show: true,
+              formatter: '{b} {d}%',
+              fontSize: 13,
+              fontWeight: 'bold',
+            },
+          },
+          label: {
+            show: true,
+            formatter: '{b}',
+            fontSize: 11,
+          },
+          labelLine: {
+            show: true,
+            length: 8,
+            length2: 6,
+          },
+          data: stats.category_distribution.map((c) => ({
+            name: c.category_name,
+            value: c.count,
+          })),
+        },
+      ],
+    };
+    chartInstance.current.setOption(option);
+  }, [stats]);
+
+  useEffect(() => {
+    const handleResize = () => chartInstance.current?.resize();
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      chartInstance.current?.dispose();
+      chartInstance.current = null;
+    };
   }, []);
 
   const reminderColumns: ColumnsType<ArchiveOut> = [
@@ -33,8 +119,6 @@ export default function Dashboard() {
       render: (v) => (v ? dayjs(v).format('YYYY-MM-DD') : '-'),
     },
   ];
-
-  const totalByCat = stats?.category_distribution.reduce((s, c) => s + c.count, 0) || 0;
 
   const reminderTable = (items: ArchiveOut[], emptyText: string) => (
     <Table
@@ -94,18 +178,7 @@ export default function Dashboard() {
         <Col span={10}>
           <Card title="分类分布" style={{ height: '100%' }}>
             {stats?.category_distribution.length ? (
-              stats.category_distribution.map((c) => (
-                <div key={c.category_id} style={{ marginBottom: 12 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>{c.category_name}</span>
-                    <span>{c.count} 条</span>
-                  </div>
-                  <Progress
-                    percent={totalByCat ? Math.round((c.count / totalByCat) * 100) : 0}
-                    showInfo={false}
-                  />
-                </div>
-              ))
+              <div ref={chartRef} style={{ width: '100%', height: 380 }} />
             ) : (
               <Empty description="暂无数据" />
             )}

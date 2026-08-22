@@ -1,12 +1,13 @@
 """档案管理接口。"""
 from datetime import date
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import check_category_unlocked, get_current_user
+from app.core.security import decode_category_unlock_token
 from app.db.session import get_db
 from app.models.category import Category
 from app.models.user import User
@@ -81,6 +82,7 @@ def export_archives(
     tag: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    x_category_unlock: str | None = Header(default=None),
 ):
     items, _ = archive_service.list_archives(
         db,
@@ -91,6 +93,31 @@ def export_archives(
         page=1,
         page_size=100000,
     )
+    # 收集结果集中所有受保护分类，逐个校验是否已解锁
+    protected_ids = {
+        a.category_id
+        for a in items
+        if a.category is not None and a.category.protect_password_hash
+    }
+    if protected_ids:
+        # 解析前端传来的解锁 token（支持多个，逗号分隔），得到已解锁的 category_id 集合
+        unlocked_ids: set[int] = set()
+        for t in (x_category_unlock or "").split(","):
+            t = t.strip()
+            if not t:
+                continue
+            parsed = decode_category_unlock_token(t)
+            if parsed is not None and parsed[0] == current_user.id:
+                unlocked_ids.add(parsed[1])
+        for cid in protected_ids:
+            if cid in unlocked_ids:
+                continue
+            category = db.get(Category, cid)
+            name = category.name if category else str(cid)
+            raise HTTPException(
+                status_code=403,
+                detail=f"分类「{name}」受二次密码保护，请先验证密码",
+            )
     buf = excel_service.build_export_workbook(items)
     return StreamingResponse(
         buf,
@@ -167,8 +194,13 @@ def get_archive(
     archive_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    x_category_unlock: str | None = Header(default=None),
 ):
-    return archive_service.get_archive(db, current_user, archive_id)
+    archive = archive_service.get_archive(db, current_user, archive_id)
+    check_category_unlocked(
+        archive.category_id, current_user, db, x_category_unlock
+    )
+    return archive
 
 
 @router.put("/{archive_id}", response_model=ArchiveOut)

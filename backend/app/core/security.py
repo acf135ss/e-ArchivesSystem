@@ -41,3 +41,35 @@ def decode_access_token(token: str) -> str | None:
         return payload.get("sub")
     except JWTError:
         return None
+
+
+# ---- 分类二次密码解锁 token ----
+
+
+def create_category_unlock_token(
+    user_id: int, category_id: int, expires_delta: timedelta | None = None
+) -> str:
+    """为已通过二次密码验证的分类签发短期解锁 token。"""
+    if expires_delta is None:
+        expires_delta = timedelta(minutes=settings.CATEGORY_UNLOCK_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + expires_delta
+    to_encode = {
+        "sub": str(user_id),
+        "category_id": category_id,
+        "type": "category_unlock",
+        "exp": expire,
+    }
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def decode_category_unlock_token(token: str) -> tuple[int, int] | None:
+    """解析分类解锁 token，返回 (user_id, category_id)，无效返回 None。"""
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+        )
+        if payload.get("type") != "category_unlock":
+            return None
+        return int(payload["sub"]), int(payload["category_id"])
+    except (JWTError, KeyError, TypeError, ValueError):
+        return None
